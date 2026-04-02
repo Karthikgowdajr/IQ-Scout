@@ -1,0 +1,29 @@
+# virtual environment
+iiq/
+
+# environment variables (never commit this)
+.env
+
+# chromadb embeddings (large, regenerate locally)
+iq_scout/data/embeddings/
+
+# raw scraped data
+iq_scout/data/raw/
+
+# python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# cursor/ide
+.cursor/
+.vscode/
+
+# os files
+.DS_Store
+Thumbs.db
+
+# logs
+*.log
