@@ -1,0 +1,5 @@
+streamlit==1.56.0
+requests==2.33.1
+requests-oauthlib==2.0.0
+requests-toolbelt==1.0.0
+fastapi==0.135.3
