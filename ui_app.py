@@ -499,7 +499,7 @@ div[data-testid="stHorizontalBlock"]:first-of-type [data-testid="stColumn"]:last
 def score_class(val):
     v = str(val).lower()
     if v in ("high", "ideal", "strong", "excellent"): return "high"
-    if v in ("medium", "moderate", "good"):           return "medium"
+    if v in ("medium", "moderate", "good", "okay"):           return "medium"
     if v in ("low", "weak", "poor"):                  return "low"
     return "default"
 
@@ -607,7 +607,7 @@ col_in, col_btn = st.columns([5, 1])
 with col_in:
     url = st.text_input(
         "Company URL",
-        placeholder="https://www.company.com  |  paste URL here",
+        placeholder="https://www.company.com --->  paste URL here",
         label_visibility="collapsed",
     )
 with col_btn:
@@ -619,7 +619,7 @@ if run and url:
     with st.spinner("Running IQ-Scout pipeline..."):
         try:
             response = requests.post(
-                "http://127.0.0.1:8000/analyze",
+                "https://iq-scout.up.railway.app/analyze",
                 json={"url": url}
             )
 
@@ -822,7 +822,7 @@ with tab3:
         if email_text:
             safe_email = html_module.escape(email_text)
             st.markdown(f"<div class='iq-outreach'>{safe_email}</div>", unsafe_allow_html=True)
-            copy_to_clipboard_button(email_text, "📋  Copy email")
+            
         else:
             iq_card("No email draft generated.")
 
@@ -832,7 +832,7 @@ with tab3:
         if linkedin_text:
             safe_li = html_module.escape(linkedin_text)
             st.markdown(f"<div class='iq-outreach'>{safe_li}</div>", unsafe_allow_html=True)
-            copy_to_clipboard_button(linkedin_text, "📋  Copy LinkedIn message")
+            
         else:
             iq_card("No LinkedIn DM generated.")
 
@@ -860,7 +860,7 @@ st.markdown("""
         <span class="name">IgniteIQ</span>
         <span>· Spark Innovation</span>
     </div>
-    <div>© 2026 IgniteIQ. All rights reserved.</div>
+    <div>© 2026 IIQ. All rights reserved.</div>
     <div>Privacy Policy · Contact Us</div>
 </div>
 """, unsafe_allow_html=True)
