@@ -1,6 +1,4 @@
 from langgraph.graph import StateGraph, END
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_chroma import Chroma
 from dotenv import load_dotenv
 from google import genai
 from openai import OpenAI
@@ -99,14 +97,6 @@ def safe_json_parse(text: str):
 
 
 # -------------------------
-# VECTOR DB
-# -------------------------
-embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-
-vectorstore = Chroma(
-    persist_directory="iq_scout/data/embeddings",
-    embedding_function=embeddings
-)
 
 
 # -------------------------
@@ -250,40 +240,26 @@ INSTRUCTIONS:
 # NODE 2: RAG
 # -------------------------
 def rag_match_node(state: ScoutState) -> ScoutState:
-    print("\n  [Node 2] RAG retrieval...")
+    print("\n  [Node 2] Context generation (no RAG)...")
 
     pain_points = state["pain_points"]
-    query = " ".join(pain_points) if pain_points else "enterprise AI automation"
 
-    try:
-        docs = vectorstore.similarity_search(query, k=5)
-    except Exception as e:
-        print(f"❌ RAG failed: {e}")
-        docs = []
+    # Simple fallback context (clean + deploy-safe)
+    context = f"""
+AI Solutions Context:
+- AI automation systems
+- RAG-based knowledge assistants
+- Workflow automation
+- Lead qualification systems
+- Customer support AI
 
-    if not docs:
-        context = "Enterprise AI automation, RAG systems, workflow automation"
-    else:
-        clean_chunks = []
-        seen = set()
-
-        for doc in docs[:3]:
-            text = doc.page_content.strip()
-
-            if len(text) < 100:
-                continue
-
-            if text in seen:
-                continue
-
-            seen.add(text)
-            clean_chunks.append(text[:500])
-
-        context = "\n\n".join(clean_chunks)
+Relevant to:
+{pain_points}
+"""
 
     state["igniteiq_context"] = context
-    print(f"  Retrieved {len(docs)} docs")
 
+    print("  Context generated (no vector DB)")
     return state
 
 # -------------------------
