@@ -60,7 +60,7 @@ def scrape_prospect(url: str) -> dict:
         print(f"  ❌ Homepage failed: {e}")
 
     # -------------------------
-    # 2. CAREERS (CRAWL + FALLBACK)
+    # 2. CAREERS
     # -------------------------
     possible_paths = [
         "/careers",
@@ -75,7 +75,6 @@ def scrape_prospect(url: str) -> dict:
         try:
             print(f"  🔹 Trying jobs: {jobs_url}")
 
-            # ---- TRY CRAWL FIRST ----
             res = app.crawl(jobs_url, limit=3)
 
             pages = []
@@ -89,38 +88,32 @@ def scrape_prospect(url: str) -> dict:
                 if isinstance(page, dict):
                     combined += page.get("markdown", "")
 
-            # ---- VALIDATION ----
             if len(combined) > 800 and any(word in combined.lower() for word in ["job", "role", "position", "apply"]):
                 result["jobs"] = combined
-                print(f"  ✅ Jobs found (crawl) — {len(combined)} chars")
+                print(f"  ✅ Jobs found (crawl)")
                 break
 
-            # ---- FALLBACK TO SCRAPE ----
-            print("  ⚠️ Crawl weak, trying scrape fallback...")
-
+            # fallback
             res = app.scrape(jobs_url, formats=["markdown"])
             content = extract_markdown_safe(res)
 
             if content and len(content) > 500:
                 result["jobs"] = content
-                print(f"  ✅ Jobs found (scrape) — {len(content)} chars")
+                print(f"  ✅ Jobs found (scrape)")
                 break
-            else:
-                print("  ⚠️ Jobs still weak")
 
         except Exception as e:
             print(f"  ❌ Failed {jobs_url}: {e}")
             continue
 
     # -------------------------
-    # 3. NEWS (MULTI QUERY)
+    # 3. NEWS
     # -------------------------
     try:
         from tavily import TavilyClient
         print("  🔹 Searching news...")
 
         tavily = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
-
         company_name = extract_company_name(url)
 
         queries = [
@@ -145,30 +138,28 @@ def scrape_prospect(url: str) -> dict:
 
         if news_texts:
             result["news"] = "\n".join(news_texts)
-            print(f"  ✅ News collected — {len(news_texts)} items")
-        else:
-            print("  ⚠️ No relevant news found")
+            print(f"  ✅ News collected")
 
     except Exception as e:
         print(f"  ❌ News failed: {e}")
+
+    # -------------------------
+    # SAVE FILE (IMPORTANT)
+    # -------------------------
+    output_path = "backend/data/prospect.json"
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(result, f, indent=2, ensure_ascii=False)
+
+    print(f"\n✅ Saved prospect to {output_path}")
 
     return result
 
 
 # -------------------------
-# EXECUTION
+# OPTIONAL DIRECT RUN
 # -------------------------
 if __name__ == "__main__":
-    print("🚀 MAIN STARTED")
-
-    test_url = "https://www.zoho.com"
-
-    data = scrape_prospect(test_url)
-
-    output_path = "iq_scout/data/raw/prospect_test.json"
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-
-    print(f"\n✅ Saved prospect data to {output_path}")
+    test_url = input("Enter URL: ")
+    scrape_prospect(test_url)

@@ -31,5 +31,6 @@ Thumbs.db
 pra.txt
 
 
-#ignore backend
-backend/
+#ignore backend files
+backend/.env
+backend/data

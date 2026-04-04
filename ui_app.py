@@ -3,6 +3,7 @@ import streamlit.components.v1 as components
 import html as html_module
 import json
 import os
+import requests
 
 # ─────────────────────────────────────────────
 # PAGE CONFIG — must be first
@@ -612,17 +613,39 @@ with col_in:
 with col_btn:
     run = st.button("🚀  Analyze", use_container_width=True)
 
+
+
 if run and url:
     with st.spinner("Running IQ-Scout pipeline..."):
         try:
-            # ── Wire your pipeline here ──
-            # from iq_scout.agents.analysis_agent import run_analysis
-            # run_analysis(url)
-            st.toast("✅ Analysis complete!")
+            response = requests.post(
+                "http://127.0.0.1:8000/analyze",
+                json={"url": url}
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+
+                if data.get("status") == "success":
+                    st.toast("✅ Analysis complete!")
+
+                    # Save result locally so your UI can load it
+                    output_path = "iq_scout/data/raw/analysis_result.json"
+                    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+                    with open(output_path, "w", encoding="utf-8") as f:
+                        json.dump(data["analysis"], f, indent=2)
+
+                    st.rerun()
+
+                else:
+                    st.error(data.get("message", "Unknown error"))
+
+            else:
+                st.error("Backend error")
+
         except Exception as e:
-            st.error(f"Pipeline error: {e}")
-elif run:
-    st.warning("Please enter a company URL.")
+            st.error(f"Connection error: {e}")
 
 
 # ─────────────────────────────────────────────
