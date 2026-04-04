@@ -119,6 +119,7 @@ class ScoutState(TypedDict):
     igniteiq_context: str
     solution_match: dict
     deal_score: str
+    outreach: dict
 
 
 # -------------------------
@@ -401,6 +402,52 @@ Return ONLY JSON:
     print(f"  Deal score: {state['deal_score']}")
     return state
 
+
+# -------------------------
+# NODE 5: REPORT
+def outreach_node(state: ScoutState) -> ScoutState:
+    print("\n  [Node 5] Generating outreach...")
+
+    summary = state.get("company_summary", {})
+    solution = state.get("solution_match", {})
+
+    prompt = f"""
+You are an elite AI sales strategist.
+
+Generate highly personalized outreach for this company.
+
+COMPANY:
+{json.dumps(summary, indent=2)}
+
+SOLUTION:
+{json.dumps(solution, indent=2)}
+
+IMPORTANT:
+- Be natural, not robotic
+- Avoid buzzwords and fluff
+- Show clear understanding of company
+- Keep it concise and impactful
+- Focus on business value
+
+Return ONLY JSON:
+{{
+    "cold_email": "",
+    "linkedin_dm": "",
+    "pitch_opener": ""
+}}
+"""
+
+    try:
+        raw = call_llm(prompt)
+        parsed = safe_json_parse(raw)
+    except Exception as e:
+        print(f"❌ Outreach failed: {e}")
+        parsed = {}
+
+    state["outreach"] = parsed
+
+    print("  Outreach generated")
+    return state
 # -------------------------
 # GRAPH
 # -------------------------
@@ -411,13 +458,15 @@ def build_graph():
     graph.add_node("rag", rag_match_node)
     graph.add_node("solution", solution_match_node)
     graph.add_node("score", scoring_node)
+    graph.add_node("outreach", outreach_node)
 
     graph.set_entry_point("extract")
 
     graph.add_edge("extract", "rag")
     graph.add_edge("rag", "solution")
     graph.add_edge("solution", "score")
-    graph.add_edge("score", END)
+    graph.add_edge("score", "outreach")
+    graph.add_edge("outreach", END)
 
     return graph.compile()
 
