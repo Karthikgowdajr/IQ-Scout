@@ -616,7 +616,7 @@ with col_btn:
 
 
 if run and url:
-    with st.spinner("Running IQ-Scout pipeline..."):
+    with st.spinner("Running IQ-Scout pipeline...Please hang tight! Scraping and analysis time varies based on website size. Since we're on a Free tier, things might take a minute, but the insights and reports are worth the wait."):
         try:
             response = requests.post(
                 "https://iq-scout.up.railway.app/analyze",
