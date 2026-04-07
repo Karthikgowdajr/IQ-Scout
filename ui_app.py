@@ -616,7 +616,33 @@ with col_btn:
 
 
 if run and url:
-    with st.spinner("Running IQ-Scout pipeline...Please hang tight! Scraping and analysis time varies based on website size. Since we're on a Free tier, things might take a minute, but the insights and reports are worth the wait."):
+
+    # 🚫 Block self-analysis (IgniteIQ)
+    blocked_domains = ["igniteiq.ai", "www.igniteiq.ai", "https://igniteiq.ai/", "https://igniteiq.ai/portfolio", "https://igniteiq.ai/contact", "https://igniteiq.ai/services", "https://igniteiq.ai"]
+
+    if any(domain in url.lower() for domain in blocked_domains):
+        st.warning("""
+        ⚠️ You're trying to analyze IgniteIQ (the solution provider).
+
+        🎯 IQ-Scout works best when analyzing:
+        • Potential clients
+        • Target companies
+        • Leads you want to sell to
+
+        👉 Please enter a different company URL.
+        """)
+        st.stop()
+
+       # ✅ Show spinner (ONLY short message)
+    with st.spinner("🔄 Running analysis..."):
+
+        st.markdown("""
+<div style="margin-top:10px; font-size:14px; color:var(--text2);">
+⏳ Scraping and analysis time varies based on 🔍 website size.<br>
+Since we're on a <b>Free tier</b>, this may take a minute — but the 🧠 insights are ⚡worth the wait.
+</div>
+""", unsafe_allow_html=True)
+
         try:
             response = requests.post(
                 "https://iq-scout.up.railway.app/analyze",
