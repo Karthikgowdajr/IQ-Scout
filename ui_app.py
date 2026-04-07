@@ -621,16 +621,18 @@ if run and url:
     blocked_domains = ["igniteiq.ai", "www.igniteiq.ai", "https://igniteiq.ai/", "https://igniteiq.ai/portfolio", "https://igniteiq.ai/contact", "https://igniteiq.ai/services", "https://igniteiq.ai"]
 
     if any(domain in url.lower() for domain in blocked_domains):
-        st.warning("""
-        ⚠️ You're trying to analyze IgniteIQ (the solution provider).
+        st.markdown("""
+        <div class='iq-card risk'>
+        ⚠️ You're trying to analyze IgniteIQ (the solution provider).<br><br>
 
-        🎯 IQ-Scout works best when analyzing:
-        • Potential clients
-        • Target companies
-        • Leads you want to sell to
+        🎯 IQ-Scout works best when analyzing:<br>
+        • Potential clients<br>
+        • Target companies<br>
+        • Leads you want to sell to<br><br>
 
         👉 Please enter a different company URL.
-        """)
+        </div>
+        """, unsafe_allow_html=True)
         st.stop()
 
        # ✅ Show spinner (ONLY short message)
