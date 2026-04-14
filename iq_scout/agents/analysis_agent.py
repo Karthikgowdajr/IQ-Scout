@@ -6,6 +6,7 @@ import os
 import json
 import re
 import time
+import hashlib
 from typing import TypedDict
 
 # -------------------------
@@ -32,52 +33,50 @@ MAX_CALLS = 50
 # -------------------------
 def openrouter_call(prompt: str) -> str:
     response = openrouter_client.chat.completions.create(
-        model="mistralai/mistral-7b-instruct",
+        model="openai/gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.3,
     )
     return response.choices[0].message.content
 
 
-def call_llm(prompt: str, retries=3):
+def call_llm(prompt: str):
     global CALL_COUNT
 
     if CALL_COUNT >= MAX_CALLS:
-        raise Exception("⚠️ Daily LLM call limit reached")
+        print("⚠️ Gemini limit reached → using fallback")
+        return openrouter_call(prompt)
 
     CALL_COUNT += 1
 
     print(f"🔍 Prompt size: {len(prompt)} chars")
 
-    for attempt in range(retries):
+    
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+
+        text = response.text
+
+        if not text or len(text.strip()) < 10:
+            raise Exception("Empty response")
+
+        return text
+
+    except Exception as e:
+        print(f"⚠️ Gemini error: {e}")
+
+        # 🔥 ALWAYS fallback after  failure
+        print("🔁 Switching to OpenRouter fallback...")
+
         try:
-            # 🔵 PRIMARY: GEMINI
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt
-            )
+            return openrouter_call(prompt)
+        except Exception as fallback_error:
+            print(f"❌ OpenRouter failed: {fallback_error}")
+            raise Exception("Both LLM Failed")
 
-            text = response.text
-
-            if not text or len(text.strip()) < 10:
-                raise Exception("Empty response")
-
-            return text
-
-        except Exception as e:
-            print(f"⚠️ Gemini error: {e}")
-
-            # 🔴 FALLBACK
-            if "429" in str(e) or "quota" in str(e).lower():
-                print("🔁 Switching to OpenRouter fallback...")
-                try:
-                    return openrouter_call(prompt)
-                except Exception as fallback_error:
-                    print(f"❌ OpenRouter failed: {fallback_error}")
-
-            time.sleep(3)
-
-    raise Exception("LLM failed after retries")
 
 
 # -------------------------
@@ -110,6 +109,58 @@ class ScoutState(TypedDict):
     solution_match: dict
     deal_score: str
     outreach: dict
+
+    
+# -------------------------
+# REDUCED LLM CALLS
+# -------------------------
+
+
+def generate_all_in_one(prospect_data, context):
+    prompt = f"""
+    You are an elite AI consultant + sales strategist.
+
+    Analyze and return FULL structured JSON.
+
+    DATA:
+    {json.dumps(prospect_data)[:2000]}
+
+    CONTEXT:
+    {context}
+
+    IMPORTANT:
+    - EXACTLY 3 pain points (no duplicates)
+    - Be specific, no fluff
+
+    Return ONLY JSON:
+
+    {
+        "company_name": "",
+        "industry": "",
+        "what_they_do": "",
+        "pain_points": ["", "", ""],
+        "ai_maturity": "",
+        "deal_score": "",
+        "deal_reason": "",
+        "confidence": "low/medium/high",
+        "fit_type": "ideal/okay/poor",
+
+        "solution": {
+            "one_line_pitch": "",
+            "short_summary": "",
+            "recommended_service": ""
+        },
+
+        "outreach": {
+            "cold_email": "",
+            "linkedin_dm": "",
+            "pitch_opener": ""
+        }
+    }
+    """
+
+    raw = call_llm(prompt)
+    return safe_json_parse(raw)
 
 
 # -------------------------
@@ -184,8 +235,16 @@ INSTRUCTIONS:
 """
 
     try:
-        raw = call_llm(prompt)
-        parsed = safe_json_parse(raw)
+        context = f"""
+        AI automation, RAG, workflow systems
+        Pain focus: {prospect.get('homepage', '')[:500]}
+        """
+
+        try:
+            parsed = generate_all_in_one(prospect, context)
+        except Exception as e:
+            print(f"❌ Combined generation failed: {e}")
+            parsed = {}
     except Exception as e:
         print(f"❌ Extract failed: {e}")
         parsed = {}
@@ -220,6 +279,8 @@ INSTRUCTIONS:
     # OTHER FIELDS
     # -------------------------
     state["company_summary"] = parsed
+    state["solution_match"] = parsed.get("solution") or {}
+    state["outreach"] = parsed.get("outreach") or {}
     state["deal_score"] = parsed.get("deal_score", "unknown")
     state["deal_reason"] = parsed.get("deal_reason", "")
     state["deal_priority"] = parsed.get("deal_priority", "unknown")
@@ -266,6 +327,14 @@ Relevant to:
 # NODE 3: SOLUTION
 # -------------------------
 def solution_match_node(state: ScoutState) -> ScoutState:
+    print("\n  [Node 3] Using pre-generated solution...")
+
+    # Already generated in extract_node
+    return state
+
+'''
+
+
     print("\n  [Node 3] Generating solution...")
 
     if not state["company_summary"]:
@@ -321,6 +390,8 @@ Return ONLY JSON:
     state["solution_match"] = parsed
     return state
 
+
+'''
 
 # -------------------------
 # NODE 4: SCORING
@@ -382,6 +453,12 @@ Return ONLY JSON:
 # -------------------------
 # NODE 5: REPORT
 def outreach_node(state: ScoutState) -> ScoutState:
+    print("\n  [Node 5] Using pre-generated outreach...")
+
+    # Already generated in extract_node
+    return state
+
+'''    
     print("\n  [Node 5] Generating outreach...")
 
     summary = state.get("company_summary", {})
@@ -446,11 +523,28 @@ def build_graph():
 
     return graph.compile()
 
+'''
+
 
 # -------------------------
 # RUN
 # -------------------------
+_result_cache = {}
+
 def run_analysis(prospect_data: dict):
+    # 🔑 Better cache key (use homepage + jobs + news)
+    raw_key = (
+        prospect_data.get("homepage", "")[:200] +
+        prospect_data.get("jobs", "")[:100] +
+        prospect_data.get("news", "")[:100]
+    )
+
+    cache_key = hashlib.md5(raw_key.encode()).hexdigest()
+
+    if cache_key in _result_cache:
+        print("✅ Returning cached result")
+        return _result_cache[cache_key]
+
     graph = build_graph()
 
     initial_state = {
@@ -462,8 +556,10 @@ def run_analysis(prospect_data: dict):
         "deal_score": ""
     }
 
-    return graph.invoke(initial_state)
+    result = graph.invoke(initial_state)
 
+    _result_cache[cache_key] = result
+    return result
 
 # -------------------------
 # MAIN
