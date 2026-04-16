@@ -31,9 +31,14 @@ Thumbs.db
 #text files
 analysis_agent_vector.txt
 analysis_agent_firstwork.txt
+analysis_agent_debugged.txt
 pra.txt
 
 
 #ignore backend files
 backend/.env
 backend/data
+
+#local run
+streamlit run app.py
+uvicorn backend.main:app --reload

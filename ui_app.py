@@ -647,7 +647,8 @@ Since we're on a <b>Free tier</b>, this may take a minute — but the 🧠 insig
 
         try:
             response = requests.post(
-                "https://iq-scout.up.railway.app/analyze",
+               "https://iq-scout.up.railway.app/analyze",
+            #    "http://localhost:8000/analyze",
                 json={"url": url}
             )
 
