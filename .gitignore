@@ -40,5 +40,5 @@ backend/.env
 backend/data
 
 #local run
-streamlit run app.py
-uvicorn backend.main:app --reload
+#streamlit run ui_app.py
+#uvicorn backend.main:app --reload

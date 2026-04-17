@@ -7,6 +7,27 @@ import json
 import re
 import time
 from typing import TypedDict
+import hashlib
+
+# -------------------------
+# CACHING
+# -------------------------
+
+CACHE_PATH = "backend/data/cache.json"
+
+def load_cache():
+    if os.path.exists(CACHE_PATH):
+        with open(CACHE_PATH, "r") as f:
+            return json.load(f)
+    return {}
+
+def save_cache(cache):
+    os.makedirs(os.path.dirname(CACHE_PATH), exist_ok=True)
+    with open(CACHE_PATH, "w") as f:
+        json.dump(cache, f, indent=2)
+
+def get_cache_key(url: str):
+    return hashlib.md5(url.encode()).hexdigest()
 
 # -------------------------
 # SETUP
@@ -32,7 +53,9 @@ MAX_CALLS = 50
 # -------------------------
 def openrouter_call(prompt: str) -> str:
     response = openrouter_client.chat.completions.create(
-        model="openai/gpt-3.5-turbo",
+        #model="openai/gpt-3.5-turbo",
+        model="meta-llama/llama-3.3-70b-instruct",
+        #model="model = "deepseek/deepseek-r1"",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.3,
     )
@@ -67,8 +90,9 @@ def call_llm(prompt: str, retries=3):
         except Exception as e:
             print(f"⚠️ Gemini error: {e}")
 
+            error_str = str(e).lower()
             # 🔴 FALLBACK
-            if "429" in str(e) or "quota" in str(e).lower():
+            if any(code in error_str for code in ["429", "quota", "503", "unavailable", "overloaded"]):
                 print("🔁 Switching to OpenRouter fallback...")
                 try:
                     return openrouter_call(prompt)
@@ -85,16 +109,18 @@ def call_llm(prompt: str, retries=3):
 # -------------------------
 def safe_json_parse(text: str):
     if not text or len(text.strip()) < 5:
-        raise Exception("Invalid empty JSON")
+        return {}
 
     try:
         return json.loads(text)
     except:
         match = re.search(r"\{.*\}", text, re.DOTALL)
         if match:
-            return json.loads(match.group())
-        raise
-
+            try:
+                return json.loads(match.group())
+            except:
+                return {}
+        return {}
 
 # -------------------------
 
@@ -189,6 +215,11 @@ INSTRUCTIONS:
     except Exception as e:
         print(f"❌ Extract failed: {e}")
         parsed = {}
+
+    if not parsed:
+        print("🚨 Extraction returned empty → stopping pipeline early")
+        state["company_summary"] = None
+        return state
 
     # -------------------------
     # 🔥 CLEAN PAIN POINTS
@@ -451,6 +482,15 @@ def build_graph():
 # RUN
 # -------------------------
 def run_analysis(prospect_data: dict):
+    cache = load_cache()
+
+    url = prospect_data.get("url", "")
+    cache_key = get_cache_key(url + "_analysis")
+
+    if cache_key in cache:
+        print("⚡ Analysis cache hit — skipping LLM")
+        return cache[cache_key]
+
     graph = build_graph()
 
     initial_state = {
@@ -463,6 +503,11 @@ def run_analysis(prospect_data: dict):
     }
 
     return graph.invoke(initial_state)
+
+    cache[cache_key] = result
+    save_cache(cache)
+
+    return result
 
 
 # -------------------------

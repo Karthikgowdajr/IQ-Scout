@@ -2,6 +2,7 @@ from firecrawl import FirecrawlApp
 from dotenv import load_dotenv
 import os
 import json
+import time
 
 # -------------------------
 # SETUP
@@ -62,20 +63,26 @@ def scrape_prospect(url: str) -> dict:
     # -------------------------
     # 2. CAREERS
     # -------------------------
-    possible_paths = [
-        "/careers",
-        "/jobs",
-        "/company/careers",
-        "/join-us",
-        "/work-with-us"
-    ]
+    possible_paths = ["/careers", "/jobs"]   # 🔥 reduced paths
 
     for path in possible_paths:
         jobs_url = url.rstrip("/") + path
+
         try:
             print(f"  🔹 Trying jobs: {jobs_url}")
 
-            res = app.crawl(jobs_url, limit=3)
+            # ✅ Use scrape FIRST (lighter than crawl)
+            res = app.scrape(jobs_url, formats=["markdown"])
+            content = extract_markdown_safe(res)
+
+            if content and len(content) > 500:
+                result["jobs"] = content
+                print("  ✅ Jobs found (scrape)")
+                break
+
+            # 🔁 Only if scrape fails → try crawl (expensive)
+            print("  🔁 Trying crawl fallback...")
+            res = app.crawl(jobs_url, limit=2)
 
             pages = []
             if isinstance(res, dict):
@@ -88,22 +95,16 @@ def scrape_prospect(url: str) -> dict:
                 if isinstance(page, dict):
                     combined += page.get("markdown", "")
 
-            if len(combined) > 800 and any(word in combined.lower() for word in ["job", "role", "position", "apply"]):
+            if len(combined) > 800:
                 result["jobs"] = combined
-                print(f"  ✅ Jobs found (crawl)")
+                print("  ✅ Jobs found (crawl)")
                 break
 
-            # fallback
-            res = app.scrape(jobs_url, formats=["markdown"])
-            content = extract_markdown_safe(res)
-
-            if content and len(content) > 500:
-                result["jobs"] = content
-                print(f"  ✅ Jobs found (scrape)")
-                break
+            time.sleep(2)  # 🔥 prevent rate limit
 
         except Exception as e:
             print(f"  ❌ Failed {jobs_url}: {e}")
+            time.sleep(2)
             continue
 
     # -------------------------
